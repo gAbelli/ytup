@@ -7,6 +7,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 )
 
@@ -61,6 +62,7 @@ func main() {
 	app := tview.NewApplication()
 
 	strs := parseDefaults("./defaults.txt")
+	shouldUpload := false
 
 	form := tview.NewForm().
 		AddInputField("Title", strs[0], 100, nil, func(text string) {
@@ -73,13 +75,21 @@ func main() {
 			strs[2] = text
 		}).
 		AddButton("Upload", func() {
+			shouldUpload = true
 			app.Stop()
 		})
+	form.SetFieldBackgroundColor(tcell.GetColor("#263238"))
+	form.SetFieldTextColor(tcell.GetColor("#ffffff"))
+	form.SetButtonBackgroundColor(tcell.GetColor("#2E3C43"))
 
-	form.SetBorder(true).SetTitle("Enter some data").SetTitleAlign(tview.AlignLeft)
+	form.SetBorder(true).SetTitle("Upload a video to YouTube").SetTitleAlign(tview.AlignLeft)
 	if err := app.SetRoot(form, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
+	if !shouldUpload {
+		return
+	}
+
 	videoInfo := VideoInfo{
 		VideoPath: flag.Arg(0),
 		ThumbnailPath: flag.Arg(1),
