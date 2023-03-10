@@ -2,11 +2,18 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/rivo/tview"
 )
+
+type VideoInfo struct {
+	VideoPath, ThumbnailPath, Title, Description string
+	Tags []string
+}
 
 func parseDefaults(dir string) []string {
 	const (
@@ -45,6 +52,12 @@ func parseDefaults(dir string) []string {
 }
 
 func main() {
+	flag.Parse()
+	if len(flag.Args()) != 2 {
+		fmt.Printf("usage: %v /path/to/video /path/to/thumbnail", os.Args[0])
+		os.Exit(1)
+	}
+
 	app := tview.NewApplication()
 
 	strs := parseDefaults("./defaults.txt")
@@ -59,12 +72,7 @@ func main() {
 		AddTextArea("Tags", strs[2], 100, 1, 0, func(text string) {
 			strs[2] = text
 		}).
-		AddButton("Save", func() {
-			for i := 0; i < 3; i++ {
-				fmt.Fprintf(os.Stderr, "%v\n", strs[i])
-			}
-		}).
-		AddButton("Quit", func() {
+		AddButton("Upload", func() {
 			app.Stop()
 		})
 
@@ -72,4 +80,12 @@ func main() {
 	if err := app.SetRoot(form, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
+	videoInfo := VideoInfo{
+		VideoPath: flag.Arg(0),
+		ThumbnailPath: flag.Arg(1),
+		Title: strs[0],
+		Description: strs[1],
+		Tags: strings.Split(strs[2], ","),
+	}
+	UploadVideo(videoInfo)
 }
