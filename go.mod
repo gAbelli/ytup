@@ -1,8 +1,9 @@
-module YouTubeUpload
+module ytup
 
 go 1.20
 
 require (
+	github.com/gdamore/tcell/v2 v2.6.0
 	github.com/rivo/tview v0.0.0-20230307144320-cc10b288e304
 	golang.org/x/net v0.8.0
 	golang.org/x/oauth2 v0.6.0
@@ -13,7 +14,6 @@ require (
 	cloud.google.com/go/compute v1.18.0 // indirect
 	cloud.google.com/go/compute/metadata v0.2.3 // indirect
 	github.com/gdamore/encoding v1.0.0 // indirect
-	github.com/gdamore/tcell/v2 v2.6.0 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/uuid v1.3.0 // indirect
