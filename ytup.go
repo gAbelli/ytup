@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -130,13 +131,15 @@ func main() {
 
 	app := tview.NewApplication()
 	form := tview.NewForm().
-		AddTextView("Video path", flag.Arg(0), 100, 1, true, false).
-		AddTextView("Thumbnail path", flag.Arg(1), 100, 1, true, false).
+		AddTextView("Video file", flag.Arg(0), 100, 1, true, false).
+		AddTextView("Thumbnail file", flag.Arg(1), 100, 1, true, false).
 		AddInputField("Title", defaultConfig.Title, 100, nil, nil).
-		AddTextArea("Description", defaultConfig.Description, 100, 0, 0, nil).
+		AddTextArea("Description", defaultConfig.Description, 100, 15, 0, nil).
 		AddInputField("Tags (comma-separated)", strings.Join(defaultConfig.Tags, ","), 100, nil, nil).
 		AddDropDown("Category", categories, defaultCategoryIndex, nil).
-		AddDropDown("Privacy status", privacyStatuses, defaultPrivacyStatusIndex, nil)
+		AddDropDown("Privacy status", privacyStatuses, defaultPrivacyStatusIndex, nil).
+		AddInputField("Publish at", time.Now().AddDate(0, 0, 1).Format(time.RFC3339), 100, nil, nil)
+
 	form.
 		AddButton("Upload", func() {
 			var videoData VideoData
@@ -158,6 +161,9 @@ func main() {
 			privacyStatusItem, _ := form.GetFormItem(6).(*tview.DropDown)
 			_, privacyStatus := privacyStatusItem.GetCurrentOption()
 			videoData.PrivacyStatus = privacyStatus
+
+			publishAtItem, _ := form.GetFormItem(7).(*tview.InputField)
+			videoData.PublishAt = publishAtItem.GetText()
 
 			app.Stop()
 			fmt.Println("Uploading...")

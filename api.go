@@ -96,15 +96,6 @@ func saveToken(file string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-func handleError(err error, message string) {
-	if message == "" {
-		message = "Error making API call"
-	}
-	if err != nil {
-		log.Fatalf(message+": %v", err.Error())
-	}
-}
-
 func upload(service *youtube.Service, videoPath, thumbnailPath string, videoData VideoData) (videoUploadError, thumbnailUploadError error) {
 	upload := &youtube.Video{
 		Snippet: &youtube.VideoSnippet{
@@ -114,7 +105,7 @@ func upload(service *youtube.Service, videoPath, thumbnailPath string, videoData
 		},
 		Status: &youtube.VideoStatus{
 			PrivacyStatus: videoData.PrivacyStatus,
-			// PublishAt: "2024-10-05T15:00:00.000Z",
+			PublishAt:     videoData.PublishAt,
 		},
 	}
 
@@ -169,8 +160,9 @@ func UploadVideo(videoPath, thumbnailPath string, videoData VideoData) (error, e
 	}
 	client := getClient(ctx, config)
 	service, err := youtube.New(client)
-
-	handleError(err, "Error creating YouTube client")
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
 
 	videoUploadError, thumbnailUploadError := upload(service, videoPath, thumbnailPath, videoData)
 	return videoUploadError, thumbnailUploadError
