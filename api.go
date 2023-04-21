@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"strconv"
 
 	"golang.org/x/net/context"
 	"golang.org/x/oauth2"
@@ -64,7 +65,7 @@ func tokenCacheFile() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	tokenCacheDir := filepath.Join(usr.HomeDir, ".credentials")
+	tokenCacheDir := filepath.Join(usr.HomeDir, ".config", "ytup")
 	os.MkdirAll(tokenCacheDir, 0700)
 	return filepath.Join(tokenCacheDir,
 		url.QueryEscape("youtube-api.json")), err
@@ -104,53 +105,64 @@ func handleError(err error, message string) {
 	}
 }
 
-func upload(service *youtube.Service, videoInfo VideoInfo) {
+func upload(service *youtube.Service, videoPath, thumbnailPath string, videoData VideoData) (videoUploadError, thumbnailUploadError error) {
 	upload := &youtube.Video{
 		Snippet: &youtube.VideoSnippet{
-			Title:       videoInfo.Title,
-			Description: videoInfo.Description,
-			CategoryId:  "27",
+			Title:       videoData.Title,
+			Description: videoData.Description,
+			CategoryId:  strconv.Itoa(categoryConversion[videoData.Category]),
 		},
-		Status: &youtube.VideoStatus{PrivacyStatus: "private"},
+		Status: &youtube.VideoStatus{
+			PrivacyStatus: videoData.PrivacyStatus,
+			// PublishAt: "2024-10-05T15:00:00.000Z",
+		},
 	}
 
 	// The API returns a 400 Bad Request response if tags is an empty string.
-	if len(videoInfo.Tags) > 0 {
-		upload.Snippet.Tags = videoInfo.Tags
+	if len(videoData.Tags) > 0 {
+		upload.Snippet.Tags = videoData.Tags
 	}
 
-	videoFile, err := os.Open(videoInfo.VideoPath)
+	videoFile, videoUploadError := os.Open(videoPath)
+	if videoUploadError != nil {
+		return
+	}
 	defer videoFile.Close()
-	if err != nil {
-		log.Fatalf("Error opening %v: %v", videoInfo.VideoPath, err)
+
+	thumbnailFile, thumbnailUploadError := os.Open(thumbnailPath)
+	if thumbnailUploadError != nil && !os.IsNotExist(thumbnailUploadError) {
+		return
 	}
-	thumbnailFile, err := os.Open(videoInfo.ThumbnailPath)
 	defer thumbnailFile.Close()
-	if err != nil {
-		log.Fatalf("Error opening %v: %v", videoInfo.ThumbnailPath, err)
-	}
 
 	videoCall := service.Videos.Insert([]string{"snippet", "status"}, upload)
-	videoResponse, err := videoCall.Media(videoFile).Do()
-	handleError(err, "")
-	fmt.Printf("Upload successful! Video ID: %v\n", videoResponse.Id)
+	videoResponse, videoUploadError := videoCall.Media(videoFile).Do()
+	if videoUploadError != nil {
+		return
+	}
 
-	thumbnailCall := service.Thumbnails.Set(videoResponse.Id)
-	_, err = thumbnailCall.Media(thumbnailFile).Do()
-	handleError(err, "")
-	fmt.Println("Thumbnail upload succesful!")
+	if thumbnailUploadError == nil {
+		thumbnailCall := service.Thumbnails.Set(videoResponse.Id)
+		_, thumbnailUploadError = thumbnailCall.Media(thumbnailFile).Do()
+	}
+
+	return
 }
 
-func UploadVideo(videoInfo VideoInfo) {
+func UploadVideo(videoPath, thumbnailPath string, videoData VideoData) (error, error) {
 	ctx := context.Background()
 
-	b, err := ioutil.ReadFile("client_secret.json")
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	b, err := ioutil.ReadFile(homeDir + "/.config/ytup/client_secret.json")
 	if err != nil {
 		log.Fatalf("Unable to read client secret file: %v", err)
 	}
 
 	// If modifying these scopes, delete your previously saved credentials
-	// at ~/.credentials/youtube-api.json
+	// at ~/.config/ytup/youtube-api.json
 	config, err := google.ConfigFromJSON(b, youtube.YoutubeUploadScope)
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
@@ -160,5 +172,6 @@ func UploadVideo(videoInfo VideoInfo) {
 
 	handleError(err, "Error creating YouTube client")
 
-	upload(service, videoInfo)
+	videoUploadError, thumbnailUploadError := upload(service, videoPath, thumbnailPath, videoData)
+	return videoUploadError, thumbnailUploadError
 }
