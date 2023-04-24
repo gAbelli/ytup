@@ -4,6 +4,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -24,10 +25,15 @@ const missingClientSecretsMessage = `
 Please configure OAuth 2.0
 `
 
+const (
+	LIST = iota
+	UPLOAD
+)
+
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
-func getClient(ctx context.Context, config *oauth2.Config) *http.Client {
-	cacheFile, err := tokenCacheFile()
+func getClient(ctx context.Context, config *oauth2.Config, requestType int) *http.Client {
+	cacheFile, err := tokenCacheFile(requestType)
 	if err != nil {
 		log.Fatalf("Unable to get path to cached credential file. %v", err)
 	}
@@ -60,15 +66,23 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 
 // tokenCacheFile generates credential file path/filename.
 // It returns the generated credential path/filename.
-func tokenCacheFile() (string, error) {
+func tokenCacheFile(requestType int) (string, error) {
 	usr, err := user.Current()
 	if err != nil {
 		return "", err
 	}
 	tokenCacheDir := filepath.Join(usr.HomeDir, ".config", "ytup")
 	os.MkdirAll(tokenCacheDir, 0700)
-	return filepath.Join(tokenCacheDir,
-		url.QueryEscape("youtube-api.json")), err
+	switch requestType {
+	case LIST:
+		return filepath.Join(tokenCacheDir,
+			url.QueryEscape("youtube-api-list.json")), err
+	case UPLOAD:
+		return filepath.Join(tokenCacheDir,
+			url.QueryEscape("youtube-api-upload.json")), err
+	default:
+		return "", errors.New("Not a valid request type")
+	}
 }
 
 // tokenFromFile retrieves a Token from a given file path.
@@ -96,7 +110,53 @@ func saveToken(file string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-func upload(service *youtube.Service, videoPath, thumbnailPath string, videoData VideoData) (videoUploadError, thumbnailUploadError error) {
+func getService(requestType int) (*youtube.Service, error) {
+	ctx := context.Background()
+
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		panic(err)
+	}
+	b, err := ioutil.ReadFile(homeDir + "/.config/ytup/client_secret.json")
+	if err != nil {
+		log.Fatalf("Unable to read client secret file: %v", err)
+	}
+
+	// If modifying these scopes, delete your previously saved credentials
+	// at ~/.config/ytup/youtube-api.json
+	config, err := google.ConfigFromJSON(b, youtube.YoutubeForceSslScope)
+	if err != nil {
+		log.Fatalf("Unable to parse client secret file to config: %v", err)
+	}
+	client := getClient(ctx, config, requestType)
+	service, err := youtube.New(client)
+	return service, err
+}
+
+// func getLatestVideos(service *youtube.Service) ([]*youtube.SearchResult, error) {
+func getLatestVideos() ([]*youtube.SearchResult, error) {
+	service, err := getService(LIST)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	listCall := service.Search.List([]string{"snippet"})
+	listResponse, err := listCall.ForMine(true).MaxResults(10).Order("date").Type("video").Do()
+	if err != nil {
+		return nil, err
+	}
+
+	// json.NewEncoder(os.Stdout).Encode(&listResponse.Items)
+
+	return listResponse.Items, nil
+}
+
+func upload(videoPath, thumbnailPath string, videoData VideoData) (videoUploadError, thumbnailUploadError error) {
+	service, err := getService(UPLOAD)
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
 	upload := &youtube.Video{
 		Snippet: &youtube.VideoSnippet{
 			Title:       videoData.Title,
@@ -138,32 +198,4 @@ func upload(service *youtube.Service, videoPath, thumbnailPath string, videoData
 	}
 
 	return
-}
-
-func UploadVideo(videoPath, thumbnailPath string, videoData VideoData) (error, error) {
-	ctx := context.Background()
-
-	homeDir, err := os.UserHomeDir()
-	if err != nil {
-		panic(err)
-	}
-	b, err := ioutil.ReadFile(homeDir + "/.config/ytup/client_secret.json")
-	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
-	}
-
-	// If modifying these scopes, delete your previously saved credentials
-	// at ~/.config/ytup/youtube-api.json
-	config, err := google.ConfigFromJSON(b, youtube.YoutubeUploadScope)
-	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
-	}
-	client := getClient(ctx, config)
-	service, err := youtube.New(client)
-	if err != nil {
-		log.Fatalf(err.Error())
-	}
-
-	videoUploadError, thumbnailUploadError := upload(service, videoPath, thumbnailPath, videoData)
-	return videoUploadError, thumbnailUploadError
 }
