@@ -1,5 +1,3 @@
-// Sample Go code for user authorization
-
 package main
 
 import (
@@ -25,15 +23,10 @@ const missingClientSecretsMessage = `
 Please configure OAuth 2.0
 `
 
-const (
-	LIST = iota
-	UPLOAD
-)
-
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
-func getClient(ctx context.Context, config *oauth2.Config, requestType int) *http.Client {
-	cacheFile, err := tokenCacheFile(requestType)
+func getClient(ctx context.Context, config *oauth2.Config) *http.Client {
+	cacheFile, err := tokenCacheFile()
 	if err != nil {
 		log.Fatalf("Unable to get path to cached credential file. %v", err)
 	}
@@ -66,23 +59,15 @@ func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
 
 // tokenCacheFile generates credential file path/filename.
 // It returns the generated credential path/filename.
-func tokenCacheFile(requestType int) (string, error) {
+func tokenCacheFile() (string, error) {
 	usr, err := user.Current()
 	if err != nil {
 		return "", err
 	}
 	tokenCacheDir := filepath.Join(usr.HomeDir, ".config", "ytup")
 	os.MkdirAll(tokenCacheDir, 0700)
-	switch requestType {
-	case LIST:
-		return filepath.Join(tokenCacheDir,
-			url.QueryEscape("youtube-api-list.json")), err
-	case UPLOAD:
-		return filepath.Join(tokenCacheDir,
-			url.QueryEscape("youtube-api-upload.json")), err
-	default:
-		return "", errors.New("Not a valid request type")
-	}
+	return filepath.Join(tokenCacheDir,
+		url.QueryEscape("youtube-api.json")), err
 }
 
 // tokenFromFile retrieves a Token from a given file path.
@@ -110,7 +95,7 @@ func saveToken(file string, token *oauth2.Token) {
 	json.NewEncoder(f).Encode(token)
 }
 
-func getService(requestType int) (*youtube.Service, error) {
+func getService() (*youtube.Service, error) {
 	ctx := context.Background()
 
 	homeDir, err := os.UserHomeDir()
@@ -128,14 +113,33 @@ func getService(requestType int) (*youtube.Service, error) {
 	if err != nil {
 		log.Fatalf("Unable to parse client secret file to config: %v", err)
 	}
-	client := getClient(ctx, config, requestType)
+	client := getClient(ctx, config)
 	service, err := youtube.New(client)
 	return service, err
 }
 
-// func getLatestVideos(service *youtube.Service) ([]*youtube.SearchResult, error) {
+func getVideoTags(id string) ([]string, error) {
+	service, err := getService()
+	if err != nil {
+		log.Fatalf(err.Error())
+	}
+
+	listCall := service.Videos.List([]string{"snippet"})
+	listResponse, err := listCall.Id(id).Do()
+	if err != nil {
+		fmt.Println(err)
+		return nil, err
+	}
+
+	if len(listResponse.Items) < 1 {
+		return nil, errors.New("Video not found")
+	}
+
+	return listResponse.Items[0].Snippet.Tags, nil
+}
+
 func getLatestVideos() ([]*youtube.SearchResult, error) {
-	service, err := getService(LIST)
+	service, err := getService()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}
@@ -146,13 +150,11 @@ func getLatestVideos() ([]*youtube.SearchResult, error) {
 		return nil, err
 	}
 
-	// json.NewEncoder(os.Stdout).Encode(&listResponse.Items)
-
 	return listResponse.Items, nil
 }
 
-func upload(videoPath, thumbnailPath string, videoData VideoData) (videoUploadError, thumbnailUploadError error) {
-	service, err := getService(UPLOAD)
+func uploadVideo(videoPath, thumbnailPath string, videoData VideoData) (videoUploadError, thumbnailUploadError error) {
+	service, err := getService()
 	if err != nil {
 		log.Fatalf(err.Error())
 	}

@@ -63,19 +63,8 @@ type VideoData struct {
 	PublishAt     string   `json:"publish_at"`
 }
 
-type VideoImportedData struct {
-	Id struct {
-		VideoId string `json:"videoId"`
-	} `json:"id"`
-	Snippet struct {
-		Title       string `json:"title"`
-		Description string `json:"description"`
-		PublishedAt string `json:"publishedAt"`
-	} `json:"snippet"`
-}
-
 func Usage() {
-	fmt.Printf("Usage: %s [OPTIONS] /path/to/video [/path/to/thumbnail]\n", os.Args[0])
+	fmt.Printf("Usage: %s /path/to/video [/path/to/thumbnail]\n", os.Args[0])
 }
 
 func main() {
@@ -140,25 +129,25 @@ func main() {
 		}
 	}
 
-	listFile, err := os.Open("./response.json")
-	var recentVideos []VideoImportedData
-	if err == nil {
-		err = json.NewDecoder(listFile).Decode(&recentVideos)
-		if err != nil {
-			panic(err)
-		}
+	latestVideos, err := getLatestVideos()
+	if err != nil {
+		panic(err)
 	}
-	listFile.Close()
 
 	app := tview.NewApplication()
 
 	list := tview.NewList()
 	digits := "1234567890"
-	for i := 0; i < len(recentVideos); i++ {
+	for i := 0; i < len(latestVideos); i++ {
 		j := i
-		list.AddItem(recentVideos[i].Snippet.Title, "", rune(digits[i]), func() {
-			defaultConfig.Title = recentVideos[j].Snippet.Title
-			defaultConfig.Description = recentVideos[j].Snippet.Description
+		list.AddItem(latestVideos[i].Snippet.Title, "", rune(digits[i]), func() {
+			defaultConfig.Title = latestVideos[j].Snippet.Title
+			defaultConfig.Description = latestVideos[j].Snippet.Description
+			tags, err := getVideoTags(latestVideos[j].Id.VideoId)
+			if err != nil {
+				panic(err)
+			}
+			defaultConfig.Tags = tags
 			app.Stop()
 		})
 	}
@@ -208,15 +197,15 @@ func main() {
 			app.Stop()
 			fmt.Println("Uploading...")
 			fmt.Println(videoPath, thumbnailPath, videoData)
-			// videoUploadError, thumbnailUploadError := upload(videoPath, thumbnailPath, videoData)
-			// if videoUploadError != nil {
-			// 	fmt.Fprintf(os.Stderr, "There was an error in the video upload: %v\n", videoUploadError)
-			// } else {
-			// 	fmt.Println("Video uploaded succesfully")
-			// }
-			// if thumbnailUploadError == nil {
-			// 	fmt.Println("Thumbnail added succesfully")
-			// }
+			videoUploadError, thumbnailUploadError := uploadVideo(videoPath, thumbnailPath, videoData)
+			if videoUploadError != nil {
+				fmt.Fprintf(os.Stderr, "There was an error in the video upload: %v\n", videoUploadError)
+			} else {
+				fmt.Println("Video uploaded succesfully")
+				if thumbnailUploadError == nil {
+					fmt.Println("Thumbnail added succesfully")
+				}
+			}
 		})
 	form.SetFieldBackgroundColor(tcell.GetColor("#606060")).SetBorder(true).SetTitle("Upload YouTube video").SetTitleAlign(tview.AlignLeft)
 	if err := app.SetRoot(form, true).EnableMouse(true).Run(); err != nil {
