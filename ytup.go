@@ -20,6 +20,8 @@ var (
 	DEFAULT_CONFIG_PATH = filepath.Join(usr.HomeDir, ".config", "ytup", "defaults.json")
 )
 
+var readCache = flag.Bool("r", false, "Read data from cache")
+
 var categoryConversion = map[string]int{
 	"Film & Animation":      1,
 	"Autos & Vehicles":      2,
@@ -54,7 +56,7 @@ var categoryConversion = map[string]int{
 	"Trailers":              44,
 }
 
-type VideoData struct {
+type VideoUploadData struct {
 	Title         string   `json:"title"`
 	Description   string   `json:"description"`
 	Tags          []string `json:"tags"`
@@ -63,11 +65,18 @@ type VideoData struct {
 	PublishAt     string   `json:"publish_at"`
 }
 
-func Usage() {
-	fmt.Printf("Usage: %s /path/to/video [/path/to/thumbnail]\n", os.Args[0])
+type VideoDownloadData struct {
+	Title       string `json:"title"`
+	Description string `json:"description"`
+	VideoId     string `json:"video_id"`
 }
 
-func main() {
+func Usage() {
+	fmt.Printf("Usage: %s /path/to/video [/path/to/thumbnail]\n", os.Args[0])
+	flag.PrintDefaults()
+}
+
+func parseArgs() (string, string) {
 	flag.Usage = Usage
 	flag.Parse()
 	var videoPath, thumbnailPath string
@@ -93,6 +102,11 @@ func main() {
 		}
 		thumbnailPath = flag.Arg(1)
 	}
+	return videoPath, thumbnailPath
+}
+
+func main() {
+	videoPath, thumbnailPath := parseArgs()
 
 	var categories []string
 	for category := range categoryConversion {
@@ -100,9 +114,9 @@ func main() {
 	}
 	sort.Strings(categories)
 
-	privacyStatuses := []string{"private", "unlisted", "public"}
+	privacyStatuses := []string{"Private", "Unlisted", "Public"}
 
-	var defaultConfig VideoData
+	var defaultConfig VideoUploadData
 	configFile, err := os.Open(DEFAULT_CONFIG_PATH)
 	if err == nil {
 		err = json.NewDecoder(configFile).Decode(&defaultConfig)
@@ -129,7 +143,7 @@ func main() {
 		}
 	}
 
-	latestVideos, err := getLatestVideos()
+	latestVideos, err := getLatestVideos(*readCache)
 	if err != nil {
 		panic(err)
 	}
@@ -140,10 +154,10 @@ func main() {
 	digits := "1234567890"
 	for i := 0; i < len(latestVideos); i++ {
 		j := i
-		list.AddItem(latestVideos[i].Snippet.Title, "", rune(digits[i]), func() {
-			defaultConfig.Title = latestVideos[j].Snippet.Title
-			defaultConfig.Description = latestVideos[j].Snippet.Description
-			tags, err := getVideoTags(latestVideos[j].Id.VideoId)
+		list.AddItem(latestVideos[i].Title, "", rune(digits[i]), func() {
+			defaultConfig.Title = latestVideos[j].Title
+			defaultConfig.Description = latestVideos[j].Description
+			tags, err := getVideoTags(latestVideos[j].VideoId)
 			if err != nil {
 				panic(err)
 			}
@@ -154,8 +168,17 @@ func main() {
 	list.AddItem("None", "", 'n', func() {
 		app.Stop()
 	})
+	frame := tview.NewFrame(list).
+		SetBorders(2, 2, 2, 2, 4, 4).
+		AddText("Import data from a recent video", true, tview.AlignLeft, tcell.ColorRed)
 
-	if err := app.SetRoot(list, true).EnableMouse(true).Run(); err != nil {
+	if err := app.SetRoot(frame, true).EnableMouse(true).SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		if event.Key() == tcell.KeyCtrlC {
+			app.Stop()
+			os.Exit(0)
+		}
+		return event
+	}).Run(); err != nil {
 		panic(err)
 	}
 
@@ -169,44 +192,47 @@ func main() {
 		AddDropDown("Privacy status", privacyStatuses, defaultPrivacyStatusIndex, nil).
 		AddInputField("Publish at", time.Now().AddDate(0, 0, 1).Format(time.RFC3339), 100, nil, nil)
 
+	titleItem, _ := form.GetFormItem(2).(*tview.InputField)
+	descriptionItem, _ := form.GetFormItem(3).(*tview.TextArea)
+	tagsItem, _ := form.GetFormItem(4).(*tview.InputField)
+	categoryItem, _ := form.GetFormItem(5).(*tview.DropDown)
+	privacyStatusItem, _ := form.GetFormItem(6).(*tview.DropDown)
+	publishAtItem, _ := form.GetFormItem(7).(*tview.InputField)
+
+	categoryItem.SetListStyles(tcell.StyleDefault.Background(tcell.ColorDarkSlateGrey), tcell.StyleDefault.Background(tcell.ColorDarkGreen))
+	privacyStatusItem.SetListStyles(tcell.StyleDefault.Background(tcell.ColorDarkSlateGrey), tcell.StyleDefault.Background(tcell.ColorDarkGreen))
+
 	form.
 		AddButton("Upload", func() {
-			var videoData VideoData
+			var videoUploadData VideoUploadData
 
-			fmt.Println(form.GetFormItemCount())
-			titleItem, _ := form.GetFormItem(2).(*tview.InputField)
-			videoData.Title = titleItem.GetText()
-
-			descriptionItem, _ := form.GetFormItem(3).(*tview.TextArea)
-			videoData.Description = descriptionItem.GetText()
-
-			tagsItem, _ := form.GetFormItem(4).(*tview.InputField)
-			videoData.Tags = strings.Split(tagsItem.GetText(), ",")
-
-			categoryItem, _ := form.GetFormItem(5).(*tview.DropDown)
+			videoUploadData.Title = titleItem.GetText()
+			videoUploadData.Description = descriptionItem.GetText()
+			videoUploadData.Tags = strings.Split(tagsItem.GetText(), ",")
 			_, category := categoryItem.GetCurrentOption()
-			videoData.Category = category
-
-			privacyStatusItem, _ := form.GetFormItem(6).(*tview.DropDown)
+			videoUploadData.Category = category
 			_, privacyStatus := privacyStatusItem.GetCurrentOption()
-			videoData.PrivacyStatus = privacyStatus
-
-			publishAtItem, _ := form.GetFormItem(7).(*tview.InputField)
-			videoData.PublishAt = publishAtItem.GetText()
+			videoUploadData.PrivacyStatus = strings.ToLower(privacyStatus)
+			videoUploadData.PublishAt = publishAtItem.GetText()
 
 			app.Stop()
 			fmt.Println("Uploading...")
-			fmt.Println(videoPath, thumbnailPath, videoData)
-			videoUploadError, thumbnailUploadError := uploadVideo(videoPath, thumbnailPath, videoData)
+			fmt.Println(videoPath, thumbnailPath, videoUploadData)
+			videoUploadError, thumbnailUploadError := uploadVideo(videoPath, thumbnailPath, videoUploadData)
 			if videoUploadError != nil {
 				fmt.Fprintf(os.Stderr, "There was an error in the video upload: %v\n", videoUploadError)
 			} else {
-				fmt.Println("Video uploaded succesfully")
+				fmt.Println("Video uploaded successfully")
 				if thumbnailUploadError == nil {
-					fmt.Println("Thumbnail added succesfully")
+					fmt.Println("Thumbnail added successfully")
 				}
 			}
 		})
+
+	// Button styling does not work for some reason
+	// uploadButton := form.GetButton(0)
+	// uploadButton.SetStyle(tcell.StyleDefault.Foreground(tcell.ColorRed))
+
 	form.SetFieldBackgroundColor(tcell.GetColor("#606060")).SetBorder(true).SetTitle("Upload YouTube video").SetTitleAlign(tview.AlignLeft)
 	if err := app.SetRoot(form, true).EnableMouse(true).Run(); err != nil {
 		panic(err)

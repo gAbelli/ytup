@@ -138,22 +138,50 @@ func getVideoTags(id string) ([]string, error) {
 	return listResponse.Items[0].Snippet.Tags, nil
 }
 
-func getLatestVideos() ([]*youtube.SearchResult, error) {
-	service, err := getService()
-	if err != nil {
-		log.Fatalf(err.Error())
+func getLatestVideos(readCache bool) ([]VideoDownloadData, error) {
+	cacheFilePath := filepath.Join(usr.HomeDir, ".config", "ytup", "videos_cache.json")
+	_, err := os.Stat(cacheFilePath)
+	if os.IsNotExist(err) {
+		os.Create(cacheFilePath)
+	} else if err != nil {
+		panic(err)
 	}
 
-	listCall := service.Search.List([]string{"snippet"})
-	listResponse, err := listCall.ForMine(true).MaxResults(10).Order("date").Type("video").Do()
+	videosCacheFile, err := os.OpenFile(cacheFilePath, os.O_RDWR, 0644)
 	if err != nil {
 		return nil, err
 	}
+	defer videosCacheFile.Close()
 
-	return listResponse.Items, nil
+	var latestVideos []VideoDownloadData
+	if readCache {
+		json.NewDecoder(videosCacheFile).Decode(&latestVideos)
+	} else {
+		service, err := getService()
+		if err != nil {
+			log.Fatalf(err.Error())
+		}
+
+		listCall := service.Search.List([]string{"snippet"})
+		listResponse, err := listCall.ForMine(true).MaxResults(10).Order("date").Type("video").Do()
+		if err != nil {
+			return nil, err
+		}
+
+		for _, video := range listResponse.Items {
+			latestVideos = append(latestVideos, VideoDownloadData{
+				Title:       video.Snippet.Title,
+				Description: video.Snippet.Description,
+				VideoId:     video.Id.VideoId,
+			})
+		}
+		json.NewEncoder(videosCacheFile).Encode(&latestVideos)
+	}
+
+	return latestVideos, nil
 }
 
-func uploadVideo(videoPath, thumbnailPath string, videoData VideoData) (videoUploadError, thumbnailUploadError error) {
+func uploadVideo(videoPath, thumbnailPath string, videoUploadData VideoUploadData) (videoUploadError, thumbnailUploadError error) {
 	service, err := getService()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -161,19 +189,19 @@ func uploadVideo(videoPath, thumbnailPath string, videoData VideoData) (videoUpl
 
 	upload := &youtube.Video{
 		Snippet: &youtube.VideoSnippet{
-			Title:       videoData.Title,
-			Description: videoData.Description,
-			CategoryId:  strconv.Itoa(categoryConversion[videoData.Category]),
+			Title:       videoUploadData.Title,
+			Description: videoUploadData.Description,
+			CategoryId:  strconv.Itoa(categoryConversion[videoUploadData.Category]),
 		},
 		Status: &youtube.VideoStatus{
-			PrivacyStatus: videoData.PrivacyStatus,
-			PublishAt:     videoData.PublishAt,
+			PrivacyStatus: videoUploadData.PrivacyStatus,
+			PublishAt:     videoUploadData.PublishAt,
 		},
 	}
 
 	// The API returns a 400 Bad Request response if tags is an empty string.
-	if len(videoData.Tags) > 0 {
-		upload.Snippet.Tags = videoData.Tags
+	if len(videoUploadData.Tags) > 0 {
+		upload.Snippet.Tags = videoUploadData.Tags
 	}
 
 	videoFile, videoUploadError := os.Open(videoPath)
