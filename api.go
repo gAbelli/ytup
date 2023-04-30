@@ -118,7 +118,7 @@ func getService() (*youtube.Service, error) {
 	return service, err
 }
 
-func getVideoTags(id string) ([]string, error) {
+func GetVideoTags(id string) ([]string, error) {
 	service, err := getService()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -138,9 +138,13 @@ func getVideoTags(id string) ([]string, error) {
 	return listResponse.Items[0].Snippet.Tags, nil
 }
 
-func getLatestVideos(readCache bool) ([]VideoDownloadData, error) {
+func GetLatestVideos(readCache bool) ([]VideoDownloadData, error) {
+	usr, err := user.Current()
+	if err != nil {
+		return nil, err
+	}
 	cacheFilePath := filepath.Join(usr.HomeDir, ".config", "ytup", "videos_cache.json")
-	_, err := os.Stat(cacheFilePath)
+	_, err = os.Stat(cacheFilePath)
 	if os.IsNotExist(err) {
 		os.Create(cacheFilePath)
 	} else if err != nil {
@@ -181,7 +185,7 @@ func getLatestVideos(readCache bool) ([]VideoDownloadData, error) {
 	return latestVideos, nil
 }
 
-func uploadVideo(videoPath, thumbnailPath string, videoUploadData VideoUploadData) (videoUploadError, thumbnailUploadError error) {
+func UploadVideo(videoUploadData *VideoUploadData) (videoUploadError, thumbnailUploadError error) {
 	service, err := getService()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -204,13 +208,13 @@ func uploadVideo(videoPath, thumbnailPath string, videoUploadData VideoUploadDat
 		upload.Snippet.Tags = videoUploadData.Tags
 	}
 
-	videoFile, videoUploadError := os.Open(videoPath)
+	videoFile, videoUploadError := os.Open(videoUploadData.VideoPath)
 	if videoUploadError != nil {
 		return
 	}
 	defer videoFile.Close()
 
-	thumbnailFile, thumbnailUploadError := os.Open(thumbnailPath)
+	thumbnailFile, thumbnailUploadError := os.Open(videoUploadData.ThumbnailPath)
 	if thumbnailUploadError != nil && !os.IsNotExist(thumbnailUploadError) {
 		return
 	}
