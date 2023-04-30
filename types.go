@@ -7,6 +7,7 @@ type ConfigData struct {
 	Tags          []string `json:"tags"`
 	Category      string   `json:"category"`
 	PrivacyStatus string   `json:"privacy_status"`
+	PublishTime   string   `json:"publish_time"`
 }
 
 // What we need inside the form
@@ -16,6 +17,7 @@ type FormData struct {
 	Tags               []string
 	CategoryIndex      int
 	PrivacyStatusIndex int
+	PublishAt          string
 }
 
 // What we need to send to YouTube to upload a video

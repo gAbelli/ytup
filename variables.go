@@ -4,9 +4,12 @@ import (
 	"flag"
 )
 
+// If this is set, we read data from a local json file
+// instead of sending a request to the YouTube API,
+// which costs some quotas.
 var readCache = flag.Bool("r", false, "Read data from cache")
 
-// A map that converts category names to their id on YouTube
+// A map that converts category names to their id on YouTube.
 var categoryConversion = map[string]int{
 	"Film & Animation":      1,
 	"Autos & Vehicles":      2,
@@ -41,7 +44,7 @@ var categoryConversion = map[string]int{
 	"Trailers":              44,
 }
 
-// The slice of category strings sorted alphabetically
+// The slice of category strings sorted alphabetically.
 var categories = []string{
 	"Action/Adventure",
 	"Anime/Animation",
@@ -77,7 +80,7 @@ var categories = []string{
 }
 
 // We show the upper case version in the UI, but we use the lower case
-// version internally
+// version internally.
 var (
 	privacyStatuses          = []string{"private", "unlisted", "public"}
 	upperCasePrivacyStatuses = []string{"Private", "Unlisted", "Public"}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
@@ -62,7 +61,7 @@ func main() {
 		AddInputField("Tags (comma-separated)", strings.Join(formData.Tags, ","), 100, nil, nil).
 		AddDropDown("Category", categories, formData.CategoryIndex, nil).
 		AddDropDown("Privacy status", upperCasePrivacyStatuses, formData.PrivacyStatusIndex, nil).
-		AddInputField("Publish at", time.Now().AddDate(0, 0, 1).Format(time.RFC3339), 100, nil, nil)
+		AddInputField("Publish at", formData.PublishAt, 100, nil, nil)
 
 	titleItem, _ := form.GetFormItem(2).(*tview.InputField)
 	descriptionItem, _ := form.GetFormItem(3).(*tview.TextArea)

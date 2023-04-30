@@ -7,13 +7,16 @@ import (
 	"os"
 	"os/user"
 	"path/filepath"
+	"time"
 )
 
+// Usage prints usage instructions to the user.
 func Usage() {
 	fmt.Printf("Usage: %s /path/to/video [/path/to/thumbnail]\n", os.Args[0])
 	flag.PrintDefaults()
 }
 
+// ParseArgs parses the command line arguments.
 func ParseArgs() (string, string) {
 	flag.Usage = Usage
 	flag.Parse()
@@ -43,6 +46,10 @@ func ParseArgs() (string, string) {
 	return videoPath, thumbnailPath
 }
 
+// GetDefaults reads the default configuration from a json file
+// and returns the corresponding form data. If the file does not
+// exist, the function still returns a default configuration
+// and does not return any error.
 func GetDefaults() (*FormData, error) {
 	usr, err := user.Current()
 	if err != nil {
@@ -56,10 +63,12 @@ func GetDefaults() (*FormData, error) {
 	if err == nil {
 		err = json.NewDecoder(configFile).Decode(&defaultConfig)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 	}
 
+	// Go does not have a built-in function to search for an
+	// element in a slice
 	defaultCategoryIndex := 0
 	if _, ok := categoryConversion[defaultConfig.Category]; ok {
 		for i, category := range categories {
@@ -77,12 +86,22 @@ func GetDefaults() (*FormData, error) {
 		}
 	}
 
+	if len(defaultConfig.PublishTime) == 0 {
+		defaultConfig.PublishTime = "0h0m"
+	}
+	publishTime, err := time.ParseDuration(defaultConfig.PublishTime)
+	if err != nil {
+		return nil, err
+	}
+	publishAt := time.Now().AddDate(0, 0, 1).Truncate(24 * time.Hour).Add(publishTime).Format(time.RFC3339)
+
 	formData := FormData{
 		Title:              defaultConfig.Title,
 		Description:        defaultConfig.Description,
 		Tags:               defaultConfig.Tags,
 		CategoryIndex:      defaultCategoryIndex,
 		PrivacyStatusIndex: defaultPrivacyStatusIndex,
+		PublishAt:          publishAt,
 	}
 
 	return &formData, nil
