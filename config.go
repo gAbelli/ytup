@@ -93,7 +93,11 @@ func GetDefaults() (*FormData, error) {
 	if err != nil {
 		return nil, err
 	}
-	publishAt := time.Now().AddDate(0, 0, 1).Truncate(24 * time.Hour).Add(publishTime).Format(time.RFC3339)
+	// Hack to get tomorow's timestamp at midnight in the correct timezone
+	year, month, day := time.Now().Date()
+	tomorrow := time.Date(year, month, day, 0, 0, 0, 0, time.Now().Location()).AddDate(0, 0, 1)
+
+	publishAt := tomorrow.Add(publishTime).Format(time.RFC3339)
 
 	formData := FormData{
 		Title:              defaultConfig.Title,
