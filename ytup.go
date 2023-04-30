@@ -70,8 +70,8 @@ func main() {
 	privacyStatusItem, _ := form.GetFormItem(6).(*tview.DropDown)
 	publishAtItem, _ := form.GetFormItem(7).(*tview.InputField)
 
-	categoryItem.SetListStyles(tcell.StyleDefault.Background(tcell.ColorDarkSlateGrey), tcell.StyleDefault.Background(tcell.ColorDarkGreen))
-	privacyStatusItem.SetListStyles(tcell.StyleDefault.Background(tcell.ColorDarkSlateGrey), tcell.StyleDefault.Background(tcell.ColorDarkGreen))
+	categoryItem.SetListStyles(tcell.StyleDefault.Background(tcell.GetColor("#303030")), tcell.StyleDefault.Background(tcell.ColorDarkGreen))
+	privacyStatusItem.SetListStyles(tcell.StyleDefault.Background(tcell.GetColor("#303030")), tcell.StyleDefault.Background(tcell.ColorDarkGreen))
 
 	form.
 		AddButton("Upload", func() {
@@ -106,7 +106,8 @@ func main() {
 	// uploadButton := form.GetButton(0)
 	// uploadButton.SetStyle(tcell.StyleDefault.Foreground(tcell.ColorRed))
 
-	form.SetFieldBackgroundColor(tcell.GetColor("#606060")).SetBorder(true).SetTitle("Upload YouTube video").SetTitleAlign(tview.AlignLeft)
+	form.SetFieldBackgroundColor(tcell.ColorDarkSlateGrey).SetBorder(true).SetTitle("Upload YouTube video").SetTitleAlign(tview.AlignLeft)
+	// form.SetFieldBackgroundColor(tcell.GetColor("#606060")).SetBorder(true).SetTitle("Upload YouTube video").SetTitleAlign(tview.AlignLeft)
 	if err := app.SetRoot(form, true).EnableMouse(true).Run(); err != nil {
 		panic(err)
 	}
