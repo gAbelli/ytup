@@ -1,14 +1,15 @@
 # ytup
 
-A simple terminal user interface to quickly upload videos to YouTube.
+A simple terminal user interface to quickly upload videos to YouTube, built with [tview](https://github.com/rivo/tview).
+
 ![screenshot](./screenshot.png)
 
 ## Features
 
 - Upload a video from the command line.
-- Add an optional thumbnail.
+- Optionally add the thumbnail.
 - Specify the video title, description, tags, category, privacy status and upload time.
-- Import data from recently uploaded videos.
+- Import the title, description and tags from recently uploaded videos.
 
 ## Installation
 
@@ -47,7 +48,7 @@ You will have to copy the code that is produced in the url bar to the terminal a
 This will open up a TUI that allows you to import data from a recently uploaded video (if you want).
 After that, you will be able to specify the title, description, tags, category, privacy status and upload time of your video.
 Finally, you can press the "Upload" button to finalize the upload.
-If you add the `-r` flag, the program will not request the list of recently uploaded videos (which costs 100 API quotas), but instead read it from a local cache.
+If you add the `-r` flag, the program will not request the list of recently uploaded videos (which costs 100 API quotas), but instead it will read it from a local cache.
 
 ## Default settings
 
@@ -116,3 +117,12 @@ An example of a valid configuration file would be the following.
 
 At the time of writing, YouTube gives you 10.000 quotas per day, and uploading one video through the API costs 1.600 quotas.
 Additionally, you will spend 100 quotas for listing the 10 most recent videos (unless you use the `-r` flag) and 1 quota to get the video tags.
+
+## Additional info
+
+- The upload timestamp must be in ISO 8601 format.
+- If you don't specify a publish date and time, the video will be uploaded but not scheduled.
+
+## Subscribe!
+
+While you are here, subscribe to my YouTube channel [mateMATTIci](https://www.youtube.com/@mateMATTIci)!
