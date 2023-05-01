@@ -118,7 +118,7 @@ func getService() (*youtube.Service, error) {
 	return service, err
 }
 
-func GetVideoTags(id string) ([]string, error) {
+func GetExtraVideoData(id string) (*ExtraVideoData, error) {
 	service, err := getService()
 	if err != nil {
 		log.Fatalf(err.Error())
@@ -135,7 +135,22 @@ func GetVideoTags(id string) ([]string, error) {
 		return nil, errors.New("Video not found")
 	}
 
-	return listResponse.Items[0].Snippet.Tags, nil
+	tags := listResponse.Items[0].Snippet.Tags
+	category := categories[0]
+	categoryId, err := strconv.Atoi(listResponse.Items[0].Snippet.CategoryId)
+	if err == nil {
+		for k, v := range categoryNameToId {
+			if v == categoryId {
+				category = k
+			}
+		}
+	}
+	extraVideoData := ExtraVideoData{
+		Tags:     tags,
+		Category: category,
+	}
+
+	return &extraVideoData, nil
 }
 
 func GetLatestVideos(readCache bool) ([]*VideoDownloadData, error) {
@@ -195,7 +210,7 @@ func UploadVideo(videoUploadData *VideoUploadData) (videoUploadError, thumbnailU
 		Snippet: &youtube.VideoSnippet{
 			Title:       videoUploadData.Title,
 			Description: videoUploadData.Description,
-			CategoryId:  strconv.Itoa(categoryConversion[videoUploadData.Category]),
+			CategoryId:  strconv.Itoa(categoryNameToId[videoUploadData.Category]),
 		},
 		Status: &youtube.VideoStatus{
 			PrivacyStatus: videoUploadData.PrivacyStatus,

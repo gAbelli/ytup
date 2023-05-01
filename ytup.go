@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/gdamore/tcell/v2"
@@ -29,11 +30,17 @@ func main() {
 		list.AddItem(latestVideos[i].Title, "", rune(digits[i]), func() {
 			formData.Title = latestVideos[j].Title
 			formData.Description = latestVideos[j].Description
-			tags, err := GetVideoTags(latestVideos[j].VideoId)
+			extraVideoData, err := GetExtraVideoData(latestVideos[j].VideoId)
 			if err != nil {
 				panic(err)
 			}
-			formData.Tags = tags
+			formData.Tags = extraVideoData.Tags
+			for i, category := range categories {
+				if category == extraVideoData.Category {
+					formData.CategoryIndex = i
+					break
+				}
+			}
 			app.Stop()
 		})
 	}
@@ -54,8 +61,8 @@ func main() {
 	}
 
 	form := tview.NewForm().
-		AddTextView("Video file", flag.Arg(0), 100, 1, true, false).
-		AddTextView("Thumbnail file", flag.Arg(1), 100, 1, true, false).
+		AddTextView("Video file", path.Base(flag.Arg(0)), 100, 1, true, false).
+		AddTextView("Thumbnail file", path.Base(flag.Arg(1)), 100, 1, true, false).
 		AddInputField("Title", formData.Title, 100, nil, nil).
 		AddTextArea("Description", formData.Description, 100, 15, 0, nil).
 		AddInputField("Tags (comma-separated)", strings.Join(formData.Tags, ","), 100, nil, nil).

@@ -10,7 +10,7 @@ import (
 var readCache = flag.Bool("r", false, "Read data from cache")
 
 // A map that converts category names to their id on YouTube.
-var categoryConversion = map[string]int{
+var categoryNameToId = map[string]int{
 	"Film & Animation":      1,
 	"Autos & Vehicles":      2,
 	"Music":                 10,

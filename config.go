@@ -16,29 +16,43 @@ func Usage() {
 	flag.PrintDefaults()
 }
 
+// checkIsFile checks if path is a file and returns an
+// error if it isn't
+func checkIsFile(path string) error {
+	info, err := os.Stat(path)
+	if os.IsNotExist(err) {
+		return fmt.Errorf("The file %v does not exist", path)
+	} else if info.IsDir() {
+		return fmt.Errorf("%v is a directory", path)
+	} else if err != nil {
+		return err
+	}
+	return nil
+}
+
 // ParseArgs parses the command line arguments.
 func ParseArgs() (string, string) {
 	flag.Usage = Usage
 	flag.Parse()
 	var videoPath, thumbnailPath string
+
+	// We must have either 1 or 2 arguments
 	if flag.NArg() == 0 || flag.NArg() > 2 {
 		flag.Usage()
 		os.Exit(1)
 	}
-	_, err := os.Stat(flag.Arg(0))
-	if os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "The file %v does not exist\n", flag.Arg(0))
-		os.Exit(1)
-	} else if err != nil {
+
+	// The video file is mandatory
+	err := checkIsFile(flag.Arg(0))
+	if err != nil {
 		panic(err)
 	}
 	videoPath = flag.Arg(0)
+
+	// The thumbnail file, instead, is not mandatory
 	if flag.NArg() == 2 {
-		_, err := os.Stat(flag.Arg(1))
-		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "The file %v does not exist\n", flag.Arg(1))
-			os.Exit(1)
-		} else if err != nil {
+		err = checkIsFile(flag.Arg(1))
+		if err != nil {
 			panic(err)
 		}
 		thumbnailPath = flag.Arg(1)
@@ -70,7 +84,7 @@ func GetDefaults() (*FormData, error) {
 	// Go does not have a built-in function to search for an
 	// element in a slice
 	defaultCategoryIndex := 0
-	if _, ok := categoryConversion[defaultConfig.Category]; ok {
+	if _, ok := categoryNameToId[defaultConfig.Category]; ok {
 		for i, category := range categories {
 			if category == defaultConfig.Category {
 				defaultCategoryIndex = i
@@ -86,7 +100,7 @@ func GetDefaults() (*FormData, error) {
 		}
 	}
 
-	if len(defaultConfig.PublishTime) == 0 {
+	if len(defaultConfig.PublishTime) != 4 {
 		defaultConfig.PublishTime = "0000"
 	}
 	publishTime, err := time.ParseDuration(defaultConfig.PublishTime[:2] + "h" + defaultConfig.PublishTime[2:4] + "m")

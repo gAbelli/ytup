@@ -38,3 +38,9 @@ type VideoDownloadData struct {
 	Description string `json:"description"`
 	VideoId     string `json:"video_id"`
 }
+
+// Some additional data that we request to YouTube
+type ExtraVideoData struct {
+	Tags     []string
+	Category string
+}
