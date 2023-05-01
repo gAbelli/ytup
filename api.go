@@ -71,7 +71,7 @@ func tokenCacheFile() (string, error) {
 	}
 	tokenCacheDir := filepath.Join(usr.HomeDir, ".config", "ytup")
 	os.MkdirAll(tokenCacheDir, 0700)
-	return filepath.Join(tokenCacheDir, url.QueryEscape("youtube-api-credentials.json")), nil
+	return filepath.Join(tokenCacheDir, url.QueryEscape("youtube_api_credentials.json")), nil
 }
 
 // tokenFromFile retrieves a Token from a given file path.
@@ -119,7 +119,7 @@ func getService() (*youtube.Service, error) {
 	}
 
 	// If modifying these scopes, delete your previously saved credentials
-	// at ~/.config/ytup/youtube-api-credentials.json
+	// at ~/.config/ytup/youtube_api_credentials.json
 	config, err := google.ConfigFromJSON(b, youtube.YoutubeForceSslScope)
 	if err != nil {
 		return nil, err
