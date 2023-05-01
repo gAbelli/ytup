@@ -87,9 +87,9 @@ func GetDefaults() (*FormData, error) {
 	}
 
 	if len(defaultConfig.PublishTime) == 0 {
-		defaultConfig.PublishTime = "0h0m"
+		defaultConfig.PublishTime = "0000"
 	}
-	publishTime, err := time.ParseDuration(defaultConfig.PublishTime)
+	publishTime, err := time.ParseDuration(defaultConfig.PublishTime[:2] + "h" + defaultConfig.PublishTime[2:4] + "m")
 	if err != nil {
 		return nil, err
 	}

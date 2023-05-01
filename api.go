@@ -138,7 +138,7 @@ func GetVideoTags(id string) ([]string, error) {
 	return listResponse.Items[0].Snippet.Tags, nil
 }
 
-func GetLatestVideos(readCache bool) ([]VideoDownloadData, error) {
+func GetLatestVideos(readCache bool) ([]*VideoDownloadData, error) {
 	usr, err := user.Current()
 	if err != nil {
 		return nil, err
@@ -157,7 +157,7 @@ func GetLatestVideos(readCache bool) ([]VideoDownloadData, error) {
 	}
 	defer videosCacheFile.Close()
 
-	var latestVideos []VideoDownloadData
+	var latestVideos []*VideoDownloadData
 	if readCache {
 		json.NewDecoder(videosCacheFile).Decode(&latestVideos)
 	} else {
@@ -173,7 +173,7 @@ func GetLatestVideos(readCache bool) ([]VideoDownloadData, error) {
 		}
 
 		for _, video := range listResponse.Items {
-			latestVideos = append(latestVideos, VideoDownloadData{
+			latestVideos = append(latestVideos, &VideoDownloadData{
 				Title:       video.Snippet.Title,
 				Description: video.Snippet.Description,
 				VideoId:     video.Id.VideoId,
@@ -199,8 +199,12 @@ func UploadVideo(videoUploadData *VideoUploadData) (videoUploadError, thumbnailU
 		},
 		Status: &youtube.VideoStatus{
 			PrivacyStatus: videoUploadData.PrivacyStatus,
-			PublishAt:     videoUploadData.PublishAt,
 		},
+	}
+
+	// If it was not specified, we should not schedule the video
+	if len(videoUploadData.PublishAt) > 0 {
+		upload.Status.PublishAt = videoUploadData.PublishAt
 	}
 
 	// The API returns a 400 Bad Request response if tags is an empty string.
