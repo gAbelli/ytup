@@ -122,6 +122,7 @@ Additionally, you will spend 100 quotas for listing the 10 most recent videos (u
 
 - The upload timestamp must be in ISO 8601 format.
 - If you don't specify a publish date and time, the video will be uploaded but not scheduled.
+- You can only schedule a video if the privacy status is set to private.
 
 ## Subscribe!
 
