@@ -31,7 +31,7 @@ func getClient(ctx context.Context, config *oauth2.Config) (*http.Client, error)
 	}
 	tok, err := tokenFromFile(cacheFile)
 	if err != nil {
-		tok, err := getTokenFromWeb(config)
+		tok, err = getTokenFromWeb(config)
 		if err != nil {
 			return nil, err
 		}
