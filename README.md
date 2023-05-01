@@ -115,7 +115,7 @@ An example of a valid configuration file would be the following.
 
 ## Quota cost
 
-At the time of writing, YouTube gives you 10.000 quotas per day, and uploading one video through the API costs 1.600 quotas.
+At the time of writing, YouTube gives you 10,000 quotas per day, and uploading one video through the API costs 1,600 quotas.
 Additionally, you will spend 100 quotas for listing the 10 most recent videos (unless you use the `-r` flag) and 1 quota to get the video tags.
 
 ## Additional info
