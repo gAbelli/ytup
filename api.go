@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -25,36 +24,42 @@ Please configure OAuth 2.0
 
 // getClient uses a Context and Config to retrieve a Token
 // then generate a Client. It returns the generated Client.
-func getClient(ctx context.Context, config *oauth2.Config) *http.Client {
+func getClient(ctx context.Context, config *oauth2.Config) (*http.Client, error) {
 	cacheFile, err := tokenCacheFile()
 	if err != nil {
-		log.Fatalf("Unable to get path to cached credential file. %v", err)
+		return nil, err
 	}
 	tok, err := tokenFromFile(cacheFile)
 	if err != nil {
-		tok = getTokenFromWeb(config)
-		saveToken(cacheFile, tok)
+		tok, err := getTokenFromWeb(config)
+		if err != nil {
+			return nil, err
+		}
+		err = saveToken(cacheFile, tok)
+		if err != nil {
+			return nil, err
+		}
 	}
-	return config.Client(ctx, tok)
+	return config.Client(ctx, tok), nil
 }
 
 // getTokenFromWeb uses Config to request a Token.
 // It returns the retrieved Token.
-func getTokenFromWeb(config *oauth2.Config) *oauth2.Token {
+func getTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	fmt.Printf("Go to the following link in your browser then type the "+
 		"authorization code: \n%v\n", authURL)
 
 	var code string
 	if _, err := fmt.Scan(&code); err != nil {
-		log.Fatalf("Unable to read authorization code %v", err)
+		return nil, err
 	}
 
 	tok, err := config.Exchange(oauth2.NoContext, code)
 	if err != nil {
-		log.Fatalf("Unable to retrieve token from web %v", err)
+		return nil, err
 	}
-	return tok
+	return tok, nil
 }
 
 // tokenCacheFile generates credential file path/filename.
@@ -66,8 +71,7 @@ func tokenCacheFile() (string, error) {
 	}
 	tokenCacheDir := filepath.Join(usr.HomeDir, ".config", "ytup")
 	os.MkdirAll(tokenCacheDir, 0700)
-	return filepath.Join(tokenCacheDir,
-		url.QueryEscape("youtube-api.json")), err
+	return filepath.Join(tokenCacheDir, url.QueryEscape("youtube-api-credentials.json")), nil
 }
 
 // tokenFromFile retrieves a Token from a given file path.
@@ -77,22 +81,29 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 	if err != nil {
 		return nil, err
 	}
+	defer f.Close()
 	t := &oauth2.Token{}
 	err = json.NewDecoder(f).Decode(t)
-	defer f.Close()
-	return t, err
+	if err != nil {
+		return nil, err
+	}
+	return t, nil
 }
 
 // saveToken uses a file path to create a file and store the
 // token in it.
-func saveToken(file string, token *oauth2.Token) {
+func saveToken(file string, token *oauth2.Token) error {
 	fmt.Printf("Saving credential file to: %s\n", file)
 	f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
-		log.Fatalf("Unable to cache oauth token: %v", err)
+		return err
 	}
 	defer f.Close()
-	json.NewEncoder(f).Encode(token)
+	err = json.NewEncoder(f).Encode(token)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func getService() (*youtube.Service, error) {
@@ -100,34 +111,39 @@ func getService() (*youtube.Service, error) {
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 	b, err := ioutil.ReadFile(homeDir + "/.config/ytup/client_secret.json")
 	if err != nil {
-		log.Fatalf("Unable to read client secret file: %v", err)
+		return nil, err
 	}
 
 	// If modifying these scopes, delete your previously saved credentials
-	// at ~/.config/ytup/youtube-api.json
+	// at ~/.config/ytup/youtube-api-credentials.json
 	config, err := google.ConfigFromJSON(b, youtube.YoutubeForceSslScope)
 	if err != nil {
-		log.Fatalf("Unable to parse client secret file to config: %v", err)
+		return nil, err
 	}
-	client := getClient(ctx, config)
+	client, err := getClient(ctx, config)
+	if err != nil {
+		return nil, err
+	}
 	service, err := youtube.New(client)
-	return service, err
+	if err != nil {
+		return nil, err
+	}
+	return service, nil
 }
 
 func GetExtraVideoData(id string) (*ExtraVideoData, error) {
 	service, err := getService()
 	if err != nil {
-		log.Fatalf(err.Error())
+		return nil, err
 	}
 
 	listCall := service.Videos.List([]string{"snippet"})
 	listResponse, err := listCall.Id(id).Do()
 	if err != nil {
-		fmt.Println(err)
 		return nil, err
 	}
 
@@ -163,7 +179,7 @@ func GetLatestVideos(readCache bool) ([]*VideoDownloadData, error) {
 	if os.IsNotExist(err) {
 		os.Create(cacheFilePath)
 	} else if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	videosCacheFile, err := os.OpenFile(cacheFilePath, os.O_RDWR, 0644)
@@ -178,7 +194,7 @@ func GetLatestVideos(readCache bool) ([]*VideoDownloadData, error) {
 	} else {
 		service, err := getService()
 		if err != nil {
-			log.Fatalf(err.Error())
+			return nil, err
 		}
 
 		listCall := service.Search.List([]string{"snippet"})
@@ -203,7 +219,7 @@ func GetLatestVideos(readCache bool) ([]*VideoDownloadData, error) {
 func UploadVideo(videoUploadData *VideoUploadData) (videoUploadError, thumbnailUploadError error) {
 	service, err := getService()
 	if err != nil {
-		log.Fatalf(err.Error())
+		return err, nil
 	}
 
 	upload := &youtube.Video{

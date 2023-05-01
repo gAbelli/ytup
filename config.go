@@ -73,8 +73,8 @@ func GetDefaults() (*FormData, error) {
 
 	var defaultConfig ConfigData
 	configFile, err := os.Open(configFilePath)
-	defer configFile.Close()
 	if err == nil {
+		defer configFile.Close()
 		err = json.NewDecoder(configFile).Decode(&defaultConfig)
 		if err != nil {
 			return nil, err
