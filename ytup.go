@@ -17,7 +17,11 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	latestVideos, err := GetLatestVideos(*readCache)
+	yt, err := NewYouTubeAPI()
+	if err != nil {
+		panic(err)
+	}
+	latestVideos, err := yt.GetLatestVideos(*readCache)
 	if err != nil {
 		panic(err)
 	}
@@ -30,7 +34,7 @@ func main() {
 		list.AddItem(latestVideos[i].Title, "", rune(digits[i]), func() {
 			formData.Title = latestVideos[j].Title
 			formData.Description = latestVideos[j].Description
-			extraVideoData, err := GetExtraVideoData(latestVideos[j].VideoId)
+			extraVideoData, err := yt.GetExtraVideoData(latestVideos[j].VideoId)
 			if err != nil {
 				panic(err)
 			}
@@ -60,9 +64,15 @@ func main() {
 		panic(err)
 	}
 
+	videoFileName := path.Base(flag.Arg(0))
+	thumbnailFileName := ""
+	if flag.NArg() == 2 {
+		thumbnailFileName = path.Base(flag.Arg(1))
+	}
+
 	form := tview.NewForm().
-		AddTextView("Video file", path.Base(flag.Arg(0)), 100, 1, true, false).
-		AddTextView("Thumbnail file", path.Base(flag.Arg(1)), 100, 1, true, false).
+		AddTextView("Video file", videoFileName, 100, 1, true, false).
+		AddTextView("Thumbnail file", thumbnailFileName, 100, 1, true, false).
 		AddInputField("Title", formData.Title, 100, nil, nil).
 		AddTextArea("Description", formData.Description, 100, 15, 0, nil).
 		AddInputField("Tags (comma-separated)", strings.Join(formData.Tags, ","), 100, nil, nil).
@@ -98,7 +108,7 @@ func main() {
 
 			app.Stop()
 			fmt.Println("Uploading...")
-			videoUploadError, thumbnailUploadError := UploadVideo(&videoUploadData)
+			videoUploadError, thumbnailUploadError := yt.UploadVideo(&videoUploadData)
 			if videoUploadError != nil {
 				fmt.Fprintf(os.Stderr, "There was an error in the video upload: %v\n", videoUploadError)
 			} else {

@@ -5,7 +5,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/user"
 	"path/filepath"
 	"time"
 )
@@ -65,11 +64,11 @@ func ParseArgs() (string, string) {
 // exist, the function still returns a default configuration
 // and does not return any error.
 func GetDefaults() (*FormData, error) {
-	usr, err := user.Current()
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	configFilePath := filepath.Join(usr.HomeDir, ".config", "ytup", "defaults.json")
+	configFilePath := filepath.Join(homeDir, ".config", "ytup", "defaults.json")
 
 	var defaultConfig ConfigData
 	configFile, err := os.Open(configFilePath)

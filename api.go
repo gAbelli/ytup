@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/user"
 	"path/filepath"
 	"strconv"
 
@@ -18,24 +17,37 @@ import (
 	"google.golang.org/api/youtube/v3"
 )
 
-const missingClientSecretsMessage = `
-Please configure OAuth 2.0
-`
+// YouTubeAPI is the class we use to interact with the YouTube API.
+type YouTubeAPI struct {
+	service *youtube.Service
+}
 
-// getClient uses a Context and Config to retrieve a Token
-// then generate a Client. It returns the generated Client.
-func getClient(ctx context.Context, config *oauth2.Config) (*http.Client, error) {
-	cacheFile, err := tokenCacheFile()
+// NewYouTubeAPI creates a new instance of the YouTubeAPI
+// class and initializes the service.
+func NewYouTubeAPI() (*YouTubeAPI, error) {
+	yt := new(YouTubeAPI)
+	service, err := yt.getService()
 	if err != nil {
 		return nil, err
 	}
-	tok, err := tokenFromFile(cacheFile)
+	yt.service = service
+	return yt, nil
+}
+
+// getClient uses a Context and Config to retrieve a Token
+// then generate a Client. It returns the generated Client.
+func (yt *YouTubeAPI) getClient(ctx context.Context, config *oauth2.Config) (*http.Client, error) {
+	cacheFile, err := yt.tokenCacheFile()
 	if err != nil {
-		tok, err = getTokenFromWeb(config)
+		return nil, err
+	}
+	tok, err := yt.tokenFromFile(cacheFile)
+	if err != nil {
+		tok, err = yt.getTokenFromWeb(config)
 		if err != nil {
 			return nil, err
 		}
-		err = saveToken(cacheFile, tok)
+		err = yt.saveToken(cacheFile, tok)
 		if err != nil {
 			return nil, err
 		}
@@ -45,7 +57,7 @@ func getClient(ctx context.Context, config *oauth2.Config) (*http.Client, error)
 
 // getTokenFromWeb uses Config to request a Token.
 // It returns the retrieved Token.
-func getTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
+func (yt *YouTubeAPI) getTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 	authURL := config.AuthCodeURL("state-token", oauth2.AccessTypeOffline)
 	fmt.Printf("Go to the following link in your browser then type the "+
 		"authorization code: \n%v\n", authURL)
@@ -64,19 +76,19 @@ func getTokenFromWeb(config *oauth2.Config) (*oauth2.Token, error) {
 
 // tokenCacheFile generates credential file path/filename.
 // It returns the generated credential path/filename.
-func tokenCacheFile() (string, error) {
-	usr, err := user.Current()
+func (yt *YouTubeAPI) tokenCacheFile() (string, error) {
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
-	tokenCacheDir := filepath.Join(usr.HomeDir, ".config", "ytup")
+	tokenCacheDir := filepath.Join(homeDir, ".config", "ytup")
 	os.MkdirAll(tokenCacheDir, 0700)
 	return filepath.Join(tokenCacheDir, url.QueryEscape("youtube_api_credentials.json")), nil
 }
 
 // tokenFromFile retrieves a Token from a given file path.
 // It returns the retrieved Token and any read error encountered.
-func tokenFromFile(file string) (*oauth2.Token, error) {
+func (yt *YouTubeAPI) tokenFromFile(file string) (*oauth2.Token, error) {
 	f, err := os.Open(file)
 	if err != nil {
 		return nil, err
@@ -92,7 +104,7 @@ func tokenFromFile(file string) (*oauth2.Token, error) {
 
 // saveToken uses a file path to create a file and store the
 // token in it.
-func saveToken(file string, token *oauth2.Token) error {
+func (yt *YouTubeAPI) saveToken(file string, token *oauth2.Token) error {
 	fmt.Printf("Saving credential file to: %s\n", file)
 	f, err := os.OpenFile(file, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0600)
 	if err != nil {
@@ -106,25 +118,24 @@ func saveToken(file string, token *oauth2.Token) error {
 	return nil
 }
 
-func getService() (*youtube.Service, error) {
+// getService returns the service that is needed to interact
+// with the YouTube API.
+func (yt *YouTubeAPI) getService() (*youtube.Service, error) {
 	ctx := context.Background()
 
 	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	b, err := ioutil.ReadFile(homeDir + "/.config/ytup/client_secret.json")
+	b, err := ioutil.ReadFile(filepath.Join(homeDir, ".config", "ytup", "client_secret.json"))
 	if err != nil {
 		return nil, err
 	}
-
-	// If modifying these scopes, delete your previously saved credentials
-	// at ~/.config/ytup/youtube_api_credentials.json
 	config, err := google.ConfigFromJSON(b, youtube.YoutubeForceSslScope)
 	if err != nil {
 		return nil, err
 	}
-	client, err := getClient(ctx, config)
+	client, err := yt.getClient(ctx, config)
 	if err != nil {
 		return nil, err
 	}
@@ -135,19 +146,16 @@ func getService() (*youtube.Service, error) {
 	return service, nil
 }
 
-func GetExtraVideoData(id string) (*ExtraVideoData, error) {
-	service, err := getService()
-	if err != nil {
-		return nil, err
-	}
-
-	listCall := service.Videos.List([]string{"snippet"})
+// GetExtraVideoData returns the tags and category id of a video
+// given its id. These are not available when we list the videos.
+func (yt *YouTubeAPI) GetExtraVideoData(id string) (*ExtraVideoData, error) {
+	listCall := yt.service.Videos.List([]string{"snippet"})
 	listResponse, err := listCall.Id(id).Do()
 	if err != nil {
 		return nil, err
 	}
 
-	if len(listResponse.Items) < 1 {
+	if len(listResponse.Items) == 0 {
 		return nil, errors.New("Video not found")
 	}
 
@@ -169,12 +177,14 @@ func GetExtraVideoData(id string) (*ExtraVideoData, error) {
 	return &extraVideoData, nil
 }
 
-func GetLatestVideos(readCache bool) ([]*VideoDownloadData, error) {
-	usr, err := user.Current()
+// GetLatestVideos returns a slice of data from the 10 most recently
+// uploaded videos.
+func (yt *YouTubeAPI) GetLatestVideos(readCache bool) ([]*VideoDownloadData, error) {
+	homeDir, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
 	}
-	cacheFilePath := filepath.Join(usr.HomeDir, ".config", "ytup", "videos_cache.json")
+	cacheFilePath := filepath.Join(homeDir, ".config", "ytup", "videos_cache.json")
 	_, err = os.Stat(cacheFilePath)
 	if os.IsNotExist(err) {
 		os.Create(cacheFilePath)
@@ -192,12 +202,7 @@ func GetLatestVideos(readCache bool) ([]*VideoDownloadData, error) {
 	if readCache {
 		json.NewDecoder(videosCacheFile).Decode(&latestVideos)
 	} else {
-		service, err := getService()
-		if err != nil {
-			return nil, err
-		}
-
-		listCall := service.Search.List([]string{"snippet"})
+		listCall := yt.service.Search.List([]string{"snippet"})
 		listResponse, err := listCall.ForMine(true).MaxResults(10).Order("date").Type("video").Do()
 		if err != nil {
 			return nil, err
@@ -216,12 +221,9 @@ func GetLatestVideos(readCache bool) ([]*VideoDownloadData, error) {
 	return latestVideos, nil
 }
 
-func UploadVideo(videoUploadData *VideoUploadData) (videoUploadError, thumbnailUploadError error) {
-	service, err := getService()
-	if err != nil {
-		return err, nil
-	}
-
+// UploadVideo uploads the video to YouTube and returns errors if the
+// video or the thumbnail were not uploaded correctly.
+func (yt *YouTubeAPI) UploadVideo(videoUploadData *VideoUploadData) (videoUploadError, thumbnailUploadError error) {
 	upload := &youtube.Video{
 		Snippet: &youtube.VideoSnippet{
 			Title:       videoUploadData.Title,
@@ -233,7 +235,7 @@ func UploadVideo(videoUploadData *VideoUploadData) (videoUploadError, thumbnailU
 		},
 	}
 
-	// If it was not specified, we should not schedule the video
+	// If publishAt was not specified, we should not schedule the video
 	if len(videoUploadData.PublishAt) > 0 {
 		upload.Status.PublishAt = videoUploadData.PublishAt
 	}
@@ -249,22 +251,20 @@ func UploadVideo(videoUploadData *VideoUploadData) (videoUploadError, thumbnailU
 	}
 	defer videoFile.Close()
 
-	thumbnailFile, thumbnailUploadError := os.Open(videoUploadData.ThumbnailPath)
-	if thumbnailUploadError != nil && !os.IsNotExist(thumbnailUploadError) {
-		return
-	}
-	defer thumbnailFile.Close()
-
-	videoCall := service.Videos.Insert([]string{"snippet", "status"}, upload)
+	videoCall := yt.service.Videos.Insert([]string{"snippet", "status"}, upload)
 	videoResponse, videoUploadError := videoCall.Media(videoFile).Do()
 	if videoUploadError != nil {
 		return
 	}
 
-	if thumbnailUploadError == nil {
-		thumbnailCall := service.Thumbnails.Set(videoResponse.Id)
-		_, thumbnailUploadError = thumbnailCall.Media(thumbnailFile).Do()
+	thumbnailFile, thumbnailUploadError := os.Open(videoUploadData.ThumbnailPath)
+	if thumbnailUploadError != nil {
+		return
 	}
+	defer thumbnailFile.Close()
+
+	thumbnailCall := yt.service.Thumbnails.Set(videoResponse.Id)
+	_, thumbnailUploadError = thumbnailCall.Media(thumbnailFile).Do()
 
 	return
 }
