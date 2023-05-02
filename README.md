@@ -9,7 +9,7 @@ A simple terminal user interface to quickly upload videos to YouTube, built with
 - Upload a video from the command line.
 - Optionally add the thumbnail.
 - Specify the video title, description, tags, category, privacy status and upload time.
-- Import the title, description and tags from recently uploaded videos.
+- Import the title, description, tags and category from recently uploaded videos.
 
 ## Installation
 
@@ -62,7 +62,7 @@ The file should contain the following data.
   "tags": The default tags, as an array of strings
   "category": The default video category, as one of the strings listed below
   "privacy_status": One among "private", "unlisted" and "public"
-  "publish_time": The default publish time, as a string, in the format HHMM
+  "publish_time": The default publish time in your current timezone, as a string, in the format HHMM
 }
 ```
 
