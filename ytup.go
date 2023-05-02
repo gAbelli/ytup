@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path"
 	"strings"
@@ -12,18 +13,19 @@ import (
 )
 
 func main() {
+	log.SetFlags(0)
 	videoPath, thumbnailPath := ParseArgs()
 	formData, err := GetDefaults()
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error: %v", err)
 	}
 	yt, err := NewYouTubeAPI()
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error: %v", err)
 	}
 	latestVideos, err := yt.GetLatestVideos(*readCache)
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error: %v", err)
 	}
 
 	app := tview.NewApplication()
@@ -36,7 +38,7 @@ func main() {
 			formData.Description = latestVideos[j].Description
 			extraVideoData, err := yt.GetExtraVideoData(latestVideos[j].VideoId)
 			if err != nil {
-				panic(err)
+				log.Fatalf("Error: %v", err)
 			}
 			formData.Tags = extraVideoData.Tags
 			for i, category := range categories {
@@ -61,7 +63,7 @@ func main() {
 		}
 		return event
 	}).Run(); err != nil {
-		panic(err)
+		log.Fatalf("Error: %v", err)
 	}
 
 	videoFileName := path.Base(flag.Arg(0))
@@ -126,6 +128,6 @@ func main() {
 	form.SetFieldBackgroundColor(tcell.ColorDarkSlateGrey).SetBorder(true).SetTitle("Upload YouTube video").SetTitleAlign(tview.AlignLeft)
 	// form.SetFieldBackgroundColor(tcell.GetColor("#606060")).SetBorder(true).SetTitle("Upload YouTube video").SetTitleAlign(tview.AlignLeft)
 	if err := app.SetRoot(form, true).EnableMouse(true).Run(); err != nil {
-		panic(err)
+		log.Fatalf("Error: %v", err)
 	}
 }

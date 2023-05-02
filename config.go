@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -44,7 +45,7 @@ func ParseArgs() (string, string) {
 	// The video file is mandatory
 	err := checkIsFile(flag.Arg(0))
 	if err != nil {
-		panic(err)
+		log.Fatalf("Error: %v", err)
 	}
 	videoPath = flag.Arg(0)
 
@@ -52,7 +53,7 @@ func ParseArgs() (string, string) {
 	if flag.NArg() == 2 {
 		err = checkIsFile(flag.Arg(1))
 		if err != nil {
-			panic(err)
+			log.Fatalf("Error: %v", err)
 		}
 		thumbnailPath = flag.Arg(1)
 	}
