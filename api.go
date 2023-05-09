@@ -152,6 +152,7 @@ func (yt *YouTubeAPI) GetExtraVideoData(id string) (*ExtraVideoData, error) {
 	listCall := yt.service.Videos.List([]string{"snippet"})
 	listResponse, err := listCall.Id(id).Do()
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "You might need to delete ~/.config/ytup/youtube_api_credentials.json\n")
 		return nil, err
 	}
 
@@ -205,6 +206,7 @@ func (yt *YouTubeAPI) GetLatestVideos(readCache bool) ([]*VideoDownloadData, err
 		listCall := yt.service.Search.List([]string{"snippet"})
 		listResponse, err := listCall.ForMine(true).MaxResults(10).Order("date").Type("video").Do()
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "You might need to delete ~/.config/ytup/youtube_api_credentials.json\n")
 			return nil, err
 		}
 
@@ -254,6 +256,7 @@ func (yt *YouTubeAPI) UploadVideo(videoUploadData *VideoUploadData) (videoUpload
 	videoCall := yt.service.Videos.Insert([]string{"snippet", "status"}, upload)
 	videoResponse, videoUploadError := videoCall.Media(videoFile).Do()
 	if videoUploadError != nil {
+		fmt.Fprintf(os.Stderr, "You might need to delete ~/.config/ytup/youtube_api_credentials.json\n")
 		return
 	}
 
