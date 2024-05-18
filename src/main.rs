@@ -6,7 +6,7 @@ mod editor;
 #[derive(Debug, Parser)]
 struct Args {
     video_path: std::path::PathBuf,
-    thumbnail_path: std::path::PathBuf,
+    thumbnail_path: Option<std::path::PathBuf>,
     #[arg(long)]
     client_secret_path: Option<std::path::PathBuf>,
     #[arg(long)]
@@ -45,11 +45,13 @@ async fn main() -> anyhow::Result<()> {
         .await?;
     println!("Video uploaded");
 
-    println!("Adding thumbnail...");
-    youtube_client
-        .add_thumbnail(&video_id, &args.thumbnail_path)
-        .await?;
-    println!("Thumbnail added");
+    if let Some(thumbnail_path) = &args.thumbnail_path {
+        println!("Adding thumbnail...");
+        youtube_client
+            .add_thumbnail(&video_id, thumbnail_path)
+            .await?;
+        println!("Thumbnail added");
+    }
 
     Ok(())
 }

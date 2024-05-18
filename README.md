@@ -11,12 +11,12 @@ A simple CLI to quickly upload videos to YouTube, written in Rust.
 
 Place your `client_secret.json` file in `~/.config/ytup/`.
 
-```bash
+```
 ytup [OPTIONS] <VIDEO_PATH> <THUMBNAIL_PATH>
 
 Arguments:
   <VIDEO_PATH>
-  <THUMBNAIL_PATH>
+  [THUMBNAIL_PATH]
 
 Options:
       --client-secret-path <CLIENT_SECRET_PATH>
