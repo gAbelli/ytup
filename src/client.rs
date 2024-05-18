@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use anyhow::{Context, Result};
+use anyhow::Context;
 use chrono::DateTime;
 use google_youtube3::{
     api::{Video, VideoSnippet, VideoStatus},
@@ -15,7 +15,7 @@ pub struct YouTubeClient {
 }
 
 impl YouTubeClient {
-    pub async fn new() -> Result<YouTubeClient> {
+    pub async fn new() -> anyhow::Result<YouTubeClient> {
         let secret =
             oauth2::read_application_secret("/Users/giorgio/.config/ytup/client_secret.json")
                 .await?;
@@ -42,7 +42,7 @@ impl YouTubeClient {
         Ok(YouTubeClient { hub })
     }
 
-    pub async fn get_last_videos(&self, n: u32) -> Result<Vec<VideoSearchResponse>> {
+    pub async fn get_last_n_videos(&self, n: u32) -> anyhow::Result<Vec<VideoSearchResponse>> {
         let videos: Vec<_> = self
             .hub
             .search()
@@ -80,7 +80,7 @@ impl YouTubeClient {
         Ok(videos)
     }
 
-    pub async fn get_video_data(&self, video_id: &str) -> Result<VideoListResponse> {
+    pub async fn get_video_data(&self, video_id: &str) -> anyhow::Result<VideoListResponse> {
         let video = self
             .hub
             .videos()
@@ -114,7 +114,7 @@ impl YouTubeClient {
         &self,
         video_upload_request: VideoUploadRequest,
         video_path: &Path,
-    ) -> Result<String> {
+    ) -> anyhow::Result<String> {
         let mut video_request = Video::default();
         video_request.snippet = Some(VideoSnippet {
             title: Some(video_upload_request.title),
@@ -144,7 +144,7 @@ impl YouTubeClient {
         Ok(video_id)
     }
 
-    pub async fn add_thumbnail(&self, video_id: &str, thumbnail_path: &Path) -> Result<()> {
+    pub async fn add_thumbnail(&self, video_id: &str, thumbnail_path: &Path) -> anyhow::Result<()> {
         let thumbnail_file = std::fs::File::open(thumbnail_path)?;
         self.hub
             .thumbnails()
@@ -160,6 +160,12 @@ impl YouTubeClient {
 pub struct VideoSearchResponse {
     pub id: String,
     pub title: String,
+}
+
+impl std::fmt::Display for VideoSearchResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.title)
+    }
 }
 
 #[derive(Debug)]
