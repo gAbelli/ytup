@@ -3,7 +3,7 @@ use chrono::{Datelike, Days, Local, TimeZone};
 use inquire;
 use std::io::Read;
 
-mod api;
+mod client;
 
 pub fn edit(file_path: &str) -> Result<String> {
     let editor = std::env::var("EDITOR")?;
@@ -18,14 +18,14 @@ pub fn edit(file_path: &str) -> Result<String> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let youtube_api = api::YouTubeApi::new().await?;
+    let youtube_api = client::YouTubeClient::new().await?;
     // let last_10_videos = youtube_api.get_last_videos(10).await?;
 
     // if last_10_videos.is_empty() {
     //     return Err(anyhow::anyhow!("No videos found"));
     // }
 
-    impl std::fmt::Display for api::VideoSearchResponse {
+    impl std::fmt::Display for client::VideoSearchResponse {
         fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
             write!(f, "{}", self.title)
         }
@@ -47,7 +47,7 @@ async fn main() -> Result<()> {
         .unwrap()
         .to_rfc3339();
 
-    let video_upload_request = api::VideoUploadRequest {
+    let video_upload_request = client::VideoUploadRequest {
         title: video_data.title,
         description: video_data.description,
         tags: video_data.tags,
@@ -65,7 +65,7 @@ async fn main() -> Result<()> {
     let yaml_file_path = yaml_file_path.to_str().unwrap();
     let content = edit(yaml_file_path)?;
 
-    let video_upload_request: api::VideoUploadRequest = serde_yaml::from_str(&content)?;
+    let video_upload_request: client::VideoUploadRequest = serde_yaml::from_str(&content)?;
 
     println!("Video upload request: {:?}", video_upload_request);
 

@@ -1,16 +1,21 @@
+use std::path::Path;
+
 use anyhow::{Context, Result};
+use chrono::DateTime;
 use google_youtube3::{
-    hyper, hyper::client::HttpConnector, hyper_rustls, hyper_rustls::HttpsConnector, oauth2,
-    YouTube,
+    api::{Video, VideoSnippet, VideoStatus},
+    hyper::{self, client::HttpConnector},
+    hyper_rustls::{self, HttpsConnector},
+    oauth2, YouTube,
 };
 use serde::{Deserialize, Serialize};
 
-pub struct YouTubeApi {
+pub struct YouTubeClient {
     hub: YouTube<HttpsConnector<HttpConnector>>,
 }
 
-impl YouTubeApi {
-    pub async fn new() -> Result<YouTubeApi> {
+impl YouTubeClient {
+    pub async fn new() -> Result<YouTubeClient> {
         let secret =
             oauth2::read_application_secret("/Users/giorgio/.config/ytup/client_secret.json")
                 .await?;
@@ -34,7 +39,7 @@ impl YouTubeApi {
             auth,
         );
 
-        Ok(YouTubeApi { hub })
+        Ok(YouTubeClient { hub })
     }
 
     pub async fn get_last_videos(&self, n: u32) -> Result<Vec<VideoSearchResponse>> {
@@ -103,6 +108,51 @@ impl YouTubeApi {
         };
 
         Ok(video_data)
+    }
+
+    pub async fn uplaod_video(
+        &self,
+        video_upload_request: VideoUploadRequest,
+        video_path: &Path,
+    ) -> Result<String> {
+        let mut video_request = Video::default();
+        video_request.snippet = Some(VideoSnippet {
+            title: Some(video_upload_request.title),
+            description: Some(video_upload_request.description),
+            tags: Some(video_upload_request.tags),
+            category_id: Some(video_upload_request.category),
+            ..Default::default()
+        });
+        video_request.status = Some(VideoStatus {
+            privacy_status: Some(video_upload_request.privacy_status),
+            publish_at: DateTime::parse_from_rfc3339(&video_upload_request.publish_at)
+                .ok()
+                .map(|dt| dt.with_timezone(&chrono::Utc)),
+            ..Default::default()
+        });
+
+        let video_file = std::fs::File::open(video_path)?;
+        let response = self
+            .hub
+            .videos()
+            .insert(video_request)
+            .upload(video_file, "application/octet-stream".parse().unwrap())
+            .await?;
+
+        let video_id = response.1.id.context("Could not retrieve video id")?;
+
+        Ok(video_id)
+    }
+
+    pub async fn add_thumbnail(&self, video_id: &str, thumbnail_path: &Path) -> Result<()> {
+        let thumbnail_file = std::fs::File::open(thumbnail_path)?;
+        self.hub
+            .thumbnails()
+            .set(video_id)
+            .upload(thumbnail_file, "application/octet-stream".parse().unwrap())
+            .await?;
+
+        Ok(())
     }
 }
 
