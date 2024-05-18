@@ -41,7 +41,7 @@ async fn main() -> anyhow::Result<()> {
 
     println!("Uploading video...");
     let video_id = youtube_client
-        .uplaod_video(video_upload_request, &args.video_path)
+        .upload_video(video_upload_request, &args.video_path)
         .await?;
     println!("Video uploaded");
 

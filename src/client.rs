@@ -110,7 +110,7 @@ impl YouTubeClient {
         Ok(video_data)
     }
 
-    pub async fn uplaod_video(
+    pub async fn upload_video(
         &self,
         video_upload_request: VideoUploadRequest,
         video_path: &Path,
