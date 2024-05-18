@@ -7,17 +7,25 @@ mod editor;
 struct Args {
     video_path: std::path::PathBuf,
     thumbnail_path: std::path::PathBuf,
-    #[arg(long, default_value = "~/.config/ytup/client_secret.json")]
-    client_secret_path: std::path::PathBuf,
-    #[arg(long, default_value = "~/.local/share/ytup/token_cache.json")]
-    token_cache_path: std::path::PathBuf,
+    #[arg(long)]
+    client_secret_path: Option<std::path::PathBuf>,
+    #[arg(long)]
+    token_cache_path: Option<std::path::PathBuf>,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    let youtube_client =
-        client::YouTubeClient::new(&args.client_secret_path, &args.token_cache_path).await?;
+    let home_dir = dirs::home_dir().unwrap();
+
+    let client_secret_path = args
+        .client_secret_path
+        .unwrap_or(home_dir.join(".config/ytup/client_secret.json"));
+    let token_cache_path = args
+        .token_cache_path
+        .unwrap_or(home_dir.join(".local/share/ytup/token_cache.json"));
+
+    let youtube_client = client::YouTubeClient::new(&client_secret_path, &token_cache_path).await?;
 
     let latest_videos = youtube_client.get_last_n_videos(10).await?;
     if latest_videos.is_empty() {
