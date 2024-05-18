@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use anyhow::Context;
 use chrono::{DateTime, Utc};
 use google_youtube3::{
@@ -9,6 +7,7 @@ use google_youtube3::{
     oauth2, YouTube,
 };
 use serde::{Deserialize, Serialize};
+use std::path::Path;
 
 pub struct YouTubeClient {
     hub: YouTube<HttpsConnector<HttpConnector>>,
