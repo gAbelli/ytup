@@ -1,4 +1,4 @@
-use anyhow::Result;
+use anyhow::{Context, Result};
 use google_youtube3::{
     hyper, hyper::client::HttpConnector, hyper_rustls, hyper_rustls::HttpsConnector, oauth2,
     YouTube,
@@ -36,8 +36,8 @@ impl YouTubeApi {
         Ok(YouTubeApi { hub })
     }
 
-    pub async fn get_last_videos(&self, n: u32) -> Result<Vec<(String, String)>> {
-        let last_ten_videos = self
+    pub async fn get_last_videos(&self, n: u32) -> Result<Vec<VideoSearchResult>> {
+        Ok(self
             .hub
             .search()
             .list(&vec!["snippet".into(), "id".into()])
@@ -46,32 +46,34 @@ impl YouTubeApi {
             .max_results(n)
             .order("date")
             .doit()
-            .await?;
+            .await?
+            .1
+            .items
+            .context("Could not retrieve search results from the API")?
+            .into_iter()
+            .flat_map(|item| {
+                let resource_id = item.id.context("Could not retrieve resource id")?;
+                let video_id = resource_id
+                    .video_id
+                    .context("Could not retrieve video id")?;
 
-        let items = last_ten_videos.1.items.unwrap();
+                let snippet = item
+                    .snippet
+                    .context(format!("Could not retrieve snippet for video {}", video_id))?;
+                let title = snippet
+                    .title
+                    .context(format!("Could not retrieve title for video {}", video_id))?;
 
-        let ids_and_titles: Vec<_> = items
-            .iter()
-            .map(|item| {
-                (
-                    item.id
-                        .as_ref()
-                        .unwrap()
-                        .video_id
-                        .as_ref()
-                        .unwrap()
-                        .to_owned(),
-                    item.snippet
-                        .as_ref()
-                        .unwrap()
-                        .title
-                        .as_ref()
-                        .unwrap()
-                        .to_owned(),
-                )
+                Ok::<VideoSearchResult, anyhow::Error>(VideoSearchResult {
+                    id: video_id,
+                    title: title,
+                })
             })
-            .collect();
-
-        Ok(ids_and_titles)
+            .collect())
     }
+}
+
+pub struct VideoSearchResult {
+    pub id: String,
+    pub title: String,
 }
