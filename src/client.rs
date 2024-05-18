@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use anyhow::Context;
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use google_youtube3::{
     api::{Video, VideoSnippet, VideoStatus},
     hyper::{self, client::HttpConnector},
@@ -15,16 +15,17 @@ pub struct YouTubeClient {
 }
 
 impl YouTubeClient {
-    pub async fn new() -> anyhow::Result<YouTubeClient> {
-        let secret =
-            oauth2::read_application_secret("/Users/giorgio/.config/ytup/client_secret.json")
-                .await?;
+    pub async fn new(
+        client_secret_path: &std::path::Path,
+        token_cache_path: &std::path::Path,
+    ) -> anyhow::Result<YouTubeClient> {
+        let secret = oauth2::read_application_secret(client_secret_path).await?;
 
         let auth = oauth2::InstalledFlowAuthenticator::builder(
             secret,
             oauth2::InstalledFlowReturnMethod::HTTPRedirect,
         )
-        .persist_tokens_to_disk("/Users/giorgio/.local/share/ytup/token_cache.json")
+        .persist_tokens_to_disk(token_cache_path)
         .build()
         .await?;
 
@@ -127,7 +128,7 @@ impl YouTubeClient {
             privacy_status: Some(video_upload_request.privacy_status),
             publish_at: DateTime::parse_from_rfc3339(&video_upload_request.publish_at)
                 .ok()
-                .map(|dt| dt.with_timezone(&chrono::Utc)),
+                .map(|dt| dt.with_timezone(&Utc)),
             ..Default::default()
         });
 

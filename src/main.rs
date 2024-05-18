@@ -1,5 +1,4 @@
 use clap::Parser;
-use inquire;
 
 mod client;
 mod editor;
@@ -8,12 +7,17 @@ mod editor;
 struct Args {
     video_path: std::path::PathBuf,
     thumbnail_path: std::path::PathBuf,
+    #[arg(long, default_value = "~/.config/ytup/client_secret.json")]
+    client_secret_path: std::path::PathBuf,
+    #[arg(long, default_value = "~/.local/share/ytup/token_cache.json")]
+    token_cache_path: std::path::PathBuf,
 }
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    let youtube_client = client::YouTubeClient::new().await?;
+    let youtube_client =
+        client::YouTubeClient::new(&args.client_secret_path, &args.token_cache_path).await?;
 
     let latest_videos = youtube_client.get_last_n_videos(10).await?;
     if latest_videos.is_empty() {
