@@ -103,7 +103,7 @@ impl YouTubeClient {
             description: snippet
                 .description
                 .context("Could not retrieve description")?,
-            tags: snippet.tags.context("Could not retrieve tags")?,
+            tags: snippet.tags.unwrap_or_default(),
             category: snippet.category_id.context("Could not retrieve category")?,
         };
 
